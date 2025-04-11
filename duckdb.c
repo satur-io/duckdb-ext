@@ -68,6 +68,7 @@ typedef struct duckdb_result_t {
 } duckdb_result_t;
 
 typedef struct duckdb_data_chunk_t {
+    bool initialised;
     duckdb_data_chunk chunk;
     zend_object std;
 } duckdb_data_chunk_t;
@@ -137,8 +138,9 @@ static void duckdb_result_free_obj(zend_object *obj)
 {
 	duckdb_result_t *result_t = duckdb_result_t_from_obj(obj);
 
-	if (result_t->result != NULL) {
+	if (result_t->initialised && result_t->result != NULL) {
 		duckdb_destroy_result(result_t->result);
+        result_t->initialised = false;
 	}
 
     efree(result_t->result);
@@ -149,9 +151,9 @@ static void duckdb_data_chunk_free_obj(zend_object *obj)
 {
 	duckdb_data_chunk_t *data_chunk = duckdb_data_chunk_t_from_obj(obj);
 
-	if (data_chunk->chunk != NULL) {
+	if (data_chunk->initialised && data_chunk->chunk != NULL) {
 		duckdb_destroy_data_chunk(&data_chunk->chunk);
-        data_chunk->chunk = NULL;
+        data_chunk->initialised = false;
 	}
 
 	zend_object_std_dtor(&data_chunk->std);
@@ -376,8 +378,10 @@ PHP_METHOD(DuckDB_Result, fetchChunk)
     data_chunk_t = Z_DUCKDB_DATA_CHUNK_P(return_value);
     data_chunk_t->chunk = duckdb_fetch_chunk(*result_t->result);
     if (!data_chunk_t->chunk) {
+        efree(data_chunk_t);
         RETURN_NULL();
     }
+    data_chunk_t->initialised = true;
 }
 
 PHP_METHOD(DuckDB_DataChunk, getSize)

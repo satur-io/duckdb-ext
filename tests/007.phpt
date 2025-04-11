@@ -6,7 +6,7 @@ duckdb
 <?php
 $duckDB = new \DuckDB\DuckDB();
 
-$result = $duckDB->query("SELECT * FROM repeat('h', 1000000);");
+$result = $duckDB->query("SELECT * FROM repeat('quack', 1000000);");
 
 $rows = 0;
 while ($dataChunk = $result->fetchChunk()) {
