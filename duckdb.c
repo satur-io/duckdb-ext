@@ -689,6 +689,38 @@ PHP_METHOD(DuckDB_Value_Timestamp, infinity)
     RETURN_LONG(PHP_DUCKDB_NEGATIVE_INFINITY);
 }
 
+PHP_METHOD(DuckDB_Value_Timestamp, getDate)
+{
+    zval *object = ZEND_THIS;
+    duckdb_timestamp_t *timestamp_t;
+    duckdb_timestamp_struct timestamp_struct;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    timestamp_t = Z_DUCKDB_TIMESTAMP_P(object);
+
+    timestamp_struct = duckdb_from_timestamp(timestamp_t->timestamp);
+    object_init_ex(return_value, duckdb_date_class_entry);
+    duckdb_date_t *date_t = Z_DUCKDB_DATE_P(return_value);
+    date_t->date = duckdb_to_date(timestamp_struct.date);
+}
+
+PHP_METHOD(DuckDB_Value_Timestamp, getTime)
+{
+    zval *object = ZEND_THIS;
+    duckdb_timestamp_t *timestamp_t;
+    duckdb_timestamp_struct timestamp_struct;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    timestamp_t = Z_DUCKDB_TIMESTAMP_P(object);
+
+    timestamp_struct = duckdb_from_timestamp(timestamp_t->timestamp);
+    object_init_ex(return_value, duckdb_time_class_entry);
+    duckdb_time_t *time_t = Z_DUCKDB_TIME_P(return_value);
+    time_t->time = duckdb_to_time(timestamp_struct.time);
+}
+
 PHP_METHOD(DuckDB_Value_Date, infinity)
 {
     zval *object = ZEND_THIS;

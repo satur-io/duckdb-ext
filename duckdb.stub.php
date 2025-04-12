@@ -61,6 +61,8 @@ namespace DuckDB\Value {
     /** @not-serializable */
     class Timestamp {
         public function infinity(): int {}
+        public function getDate(): Date {}
+        public function getTime(): Time {}
         public function __toString(): string {}
     }
 

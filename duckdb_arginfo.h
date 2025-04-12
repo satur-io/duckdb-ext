@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 5a0c1d93f5ab5aeb2d28cbd2e1d42183976ae998 */
+ * Stub hash: 3984934a7089d2fc99eb653818501dba4bbad7e1 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_duckdb_info, 0, 0, IS_VOID, 0)
 ZEND_END_ARG_INFO()
@@ -29,6 +29,12 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_DuckDB_Vector_getData, 0, 
 ZEND_END_ARG_INFO()
 
 #define arginfo_class_DuckDB_Value_Timestamp_infinity arginfo_class_DuckDB_Result_columnCount
+
+ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_class_DuckDB_Value_Timestamp_getDate, 0, 0, DuckDB\\Value\\Date, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_class_DuckDB_Value_Timestamp_getTime, 0, 0, DuckDB\\Value\\Time, 0)
+ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_DuckDB_Value_Timestamp___toString, 0, 0, IS_STRING, 0)
 ZEND_END_ARG_INFO()
@@ -66,6 +72,8 @@ ZEND_METHOD(DuckDB_DataChunk, getSize);
 ZEND_METHOD(DuckDB_DataChunk, getVector);
 ZEND_METHOD(DuckDB_Vector, getData);
 ZEND_METHOD(DuckDB_Value_Timestamp, infinity);
+ZEND_METHOD(DuckDB_Value_Timestamp, getDate);
+ZEND_METHOD(DuckDB_Value_Timestamp, getTime);
 ZEND_METHOD(DuckDB_Value_Timestamp, __toString);
 ZEND_METHOD(DuckDB_Value_Date, infinity);
 ZEND_METHOD(DuckDB_Value_Date, getYear);
@@ -110,6 +118,8 @@ static const zend_function_entry class_DuckDB_Vector_methods[] = {
 
 static const zend_function_entry class_DuckDB_Value_Timestamp_methods[] = {
 	ZEND_ME(DuckDB_Value_Timestamp, infinity, arginfo_class_DuckDB_Value_Timestamp_infinity, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Timestamp, getDate, arginfo_class_DuckDB_Value_Timestamp_getDate, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Timestamp, getTime, arginfo_class_DuckDB_Value_Timestamp_getTime, ZEND_ACC_PUBLIC)
 	ZEND_ME(DuckDB_Value_Timestamp, __toString, arginfo_class_DuckDB_Value_Timestamp___toString, ZEND_ACC_PUBLIC)
 	ZEND_FE_END
 };

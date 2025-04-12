@@ -16,13 +16,11 @@ while ($dataChunk = $result->fetchChunk()) {
         for ($r=0; $r<$rows; $r++) {
             $data = $vector->getData($r);
             printf("%s\n", $data);
-            unset($data);
+            printf("Date: %s\n", $data->getDate());
+            printf("Time: %s\n", $data->getTime());
         }
-        unset($vector);
     }
 }
-unset($dataChunk);
-unset($result);
 
 $infinityTimestamps = $duckDB->query("SELECT 'infinity'::TIMESTAMP as infinity_timestamp, '-infinity'::TIMESTAMP as negative_infinity_timestamp, 'epoch'::TIMESTAMP as finite_timestamp;");
 var_dump($infinityTimestamps->columnCount());
@@ -38,7 +36,11 @@ printf("Infinity value: %s\n", $data->infinity());
 ?>
 --EXPECT--
 1521-04-23 12:45:17.1234
+Date: 1521-04-23
+Time: 12:45:17.123400
 1521-04-17 12:45:17.1234
+Date: 1521-04-17
+Time: 12:45:17.123400
 int(3)
 Infinity value: 1
 Infinity value: -1
