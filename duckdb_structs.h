@@ -49,6 +49,7 @@ typedef struct duckdb_vector_t
 typedef struct duckdb_nested_vector_t
 {
     bool initialised;
+    uint64_t row_index;
     duckdb_vector_t *vector;
     zend_object std;
 } duckdb_nested_vector_t;

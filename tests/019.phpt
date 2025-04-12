@@ -40,10 +40,12 @@ while ($dataChunk = $result->fetchChunk()) {
             $childs = $data->childCount();
             printf("Childs: %s\n", $childs);
 
-            $dataArray = $data->toArray($r);
+            $dataArray = $data->toArray();
             foreach ($dataArray as $key => $value) {
                 printf("Row %s, for the key %s, value %s\n", $r, $key, $value);
             }
+
+            printf("To string: %s\n", $data);
         }
     }
 }
@@ -62,6 +64,8 @@ Value 3: heron
 Childs: 2
 Row 0, for the key yes, value duck
 Row 0, for the key maybe, value goose
+To string: {"yes":"duck","maybe":"goose"}
 Childs: 2
 Row 1, for the key yes, value cua
 Row 1, for the key maybe, value alfred
+To string: {"yes":"cua","maybe":"alfred"}

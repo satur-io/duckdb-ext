@@ -90,7 +90,8 @@ namespace DuckDB\Value {
         public function childCount(): int {}
         public function childName(int $index): string {}
         public function getChild(int $index): \DuckDB\Vector {}
-        public function toArray(int $index): array {}
+        public function toArray(): array {}
+        public function __toString(): string {}
     }
 }
 

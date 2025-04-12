@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 3a5b0d9e5b58badca92ffe8a3937713a8c23a34e */
+ * Stub hash: 45c6ee6e2505f69ca32b3481e2c2f4d9dcb3aee1 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_duckdb_info, 0, 0, IS_VOID, 0)
 ZEND_END_ARG_INFO()
@@ -73,9 +73,10 @@ ZEND_BEGIN_ARG_WITH_RETURN_OBJ_INFO_EX(arginfo_class_DuckDB_Value_Struct_getChil
 	ZEND_ARG_TYPE_INFO(0, index, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_DuckDB_Value_Struct_toArray, 0, 1, IS_ARRAY, 0)
-	ZEND_ARG_TYPE_INFO(0, index, IS_LONG, 0)
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_DuckDB_Value_Struct_toArray, 0, 0, IS_ARRAY, 0)
 ZEND_END_ARG_INFO()
+
+#define arginfo_class_DuckDB_Value_Struct___toString arginfo_class_DuckDB_Value_Timestamp___toString
 
 ZEND_FUNCTION(duckdb_info);
 ZEND_METHOD(DuckDB_DuckDB, __construct);
@@ -105,6 +106,7 @@ ZEND_METHOD(DuckDB_Value_Struct, childCount);
 ZEND_METHOD(DuckDB_Value_Struct, childName);
 ZEND_METHOD(DuckDB_Value_Struct, getChild);
 ZEND_METHOD(DuckDB_Value_Struct, toArray);
+ZEND_METHOD(DuckDB_Value_Struct, __toString);
 
 static const zend_function_entry ext_functions[] = {
 	ZEND_FE(duckdb_info, arginfo_duckdb_info)
@@ -167,6 +169,7 @@ static const zend_function_entry class_DuckDB_Value_Struct_methods[] = {
 	ZEND_ME(DuckDB_Value_Struct, childName, arginfo_class_DuckDB_Value_Struct_childName, ZEND_ACC_PUBLIC)
 	ZEND_ME(DuckDB_Value_Struct, getChild, arginfo_class_DuckDB_Value_Struct_getChild, ZEND_ACC_PUBLIC)
 	ZEND_ME(DuckDB_Value_Struct, toArray, arginfo_class_DuckDB_Value_Struct_toArray, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Struct, __toString, arginfo_class_DuckDB_Value_Struct___toString, ZEND_ACC_PUBLIC)
 	ZEND_FE_END
 };
 

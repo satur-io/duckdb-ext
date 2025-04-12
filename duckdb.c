@@ -14,6 +14,8 @@
 #include "duckdb_arginfo.h"
 #include "zend_exceptions.h"
 #include "duckdb_structs.h"
+#include "ext/json/php_json.h"
+#include "zend_smart_str.h"
 
 #include <duckdb.h>
 
@@ -285,6 +287,172 @@ static HashTable *duckdb_result_get_debug_info(zend_object *object, int *is_temp
     return ret;
 }
 
+static void duckdb_value_to_zval(duckdb_vector_t *vector_t, int rowIndex, zval *data)
+{
+    switch (vector_t->type)
+    {
+    case DUCKDB_TYPE_BOOLEAN:
+        ZVAL_BOOL(data, ((bool *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_VARCHAR:
+        uint32_t len = ((duckdb_string_t *)vector_t->data)[rowIndex].value.inlined.length;
+
+        if (len > 12)
+        {
+            ZVAL_STRINGL(data, ((duckdb_string_t *)vector_t->data)[rowIndex].value.pointer.ptr, len);
+        }
+        else
+        {
+            ZVAL_STRINGL(data, ((duckdb_string_t *)vector_t->data)[rowIndex].value.inlined.inlined, len);
+        }
+        break;
+    case DUCKDB_TYPE_TINYINT:
+        ZVAL_LONG(data, ((int8_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_SMALLINT:
+        ZVAL_LONG(data, ((int16_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_INTEGER:
+        ZVAL_LONG(data, ((int32_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_BIGINT:
+        ZVAL_LONG(data, ((int64_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_UTINYINT:
+        ZVAL_LONG(data, ((uint8_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_USMALLINT:
+        ZVAL_LONG(data, ((uint16_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_UINTEGER:
+        ZVAL_LONG(data, ((uint32_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_UBIGINT:
+        ZVAL_LONG(data, ((uint64_t *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_FLOAT:
+        ZVAL_DOUBLE(data, ((float *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_DOUBLE:
+        ZVAL_DOUBLE(data, ((double *)vector_t->data)[rowIndex]);
+        break;
+    case DUCKDB_TYPE_TIMESTAMP:
+    {
+        object_init_ex(data, duckdb_timestamp_class_entry);
+        duckdb_timestamp_t *timestamp_t = Z_DUCKDB_TIMESTAMP_P(data);
+        timestamp_t->timestamp = ((duckdb_timestamp *)vector_t->data)[rowIndex];
+        break;
+    }
+    case DUCKDB_TYPE_DATE:
+    {
+        object_init_ex(data, duckdb_date_class_entry);
+        duckdb_date_t *date_t = Z_DUCKDB_DATE_P(data);
+        date_t->date = ((duckdb_date *)vector_t->data)[rowIndex];
+        break;
+    }
+    case DUCKDB_TYPE_TIME:
+    {
+        object_init_ex(data, duckdb_time_class_entry);
+        duckdb_time_t *time_t = Z_DUCKDB_TIME_P(data);
+        time_t->time = ((duckdb_time *)vector_t->data)[rowIndex];
+        break;
+    }
+    case DUCKDB_TYPE_STRUCT:
+    {
+        object_init_ex(data, duckdb_struct_class_entry);
+        duckdb_nested_vector_t *nested_vector = Z_DUCKDB_NESTED_VECTOR_P(data);
+        nested_vector->vector = vector_t;
+        nested_vector->row_index = rowIndex;
+        nested_vector->initialised = true;
+
+        break;
+    }
+    // Other types just cast to string
+    // TODO: convert types to PHP properly
+    case DUCKDB_TYPE_UUID:
+    {
+        duckdb_hugeint uuid_hugeint = ((duckdb_hugeint *)vector_t->data)[rowIndex];
+        duckdb_uhugeint uuid_uhugeint;
+        uuid_uhugeint.lower = uuid_hugeint.lower;
+
+        if (uuid_hugeint.upper >= 0)
+        {
+            uuid_uhugeint.upper = (uint64_t)(uuid_hugeint.upper) + (uint64_t)(INT64_MAX) + 1;
+        }
+        else
+        {
+            uuid_uhugeint.upper = (uint64_t)(uuid_hugeint.upper + INT64_MAX + 1);
+        }
+
+        duckdb_value value = duckdb_create_uuid(uuid_uhugeint);
+
+        char *string = duckdb_get_varchar(value);
+        ZVAL_STRING(data, string);
+        break;
+    }
+    case DUCKDB_TYPE_INTERVAL:
+    {
+        duckdb_interval value = ((duckdb_interval *)vector_t->data)[rowIndex];
+        duckdb_value value_value = duckdb_create_interval(value);
+
+        char *string = duckdb_get_varchar(value_value);
+        ZVAL_STRING(data, string);
+        break;
+    }
+    default:
+    {
+        ZVAL_NULL(data);
+    }
+    }
+}
+
+static void get_data(duckdb_vector_t *vector_t, zend_long row_index, zval *data)
+{
+    if (vector_t->type == DUCKDB_TYPE_INVALID)
+    {
+        vector_t->logical_type = duckdb_vector_get_column_type(vector_t->vector);
+        vector_t->type = duckdb_get_type_id(vector_t->logical_type);
+    }
+
+    if (vector_t->validity == NULL)
+    {
+        vector_t->validity = duckdb_vector_get_validity(vector_t->vector);
+    }
+
+    if (vector_t->data == NULL)
+    {
+        vector_t->data = duckdb_vector_get_data(vector_t->vector);
+    }
+
+    if (duckdb_validity_row_is_valid(vector_t->validity, row_index))
+    {
+        duckdb_value_to_zval(vector_t, row_index, data);
+        return;
+    }
+
+    ZVAL_NULL(data);
+}
+
+static void struct_to_array(duckdb_nested_vector_t *nested_vector, int rowIndex, zval *array)
+{
+    duckdb_vector_t *vector_t;
+    zval data;
+
+    array_init(array);
+    uint64_t child_size = duckdb_struct_type_child_count(nested_vector->vector->logical_type);
+
+    for (uint64_t i = 0; i < child_size; i++)
+    {
+        char *name = duckdb_struct_type_child_name(nested_vector->vector->logical_type, i);
+        vector_t = ecalloc(1, sizeof(duckdb_vector_t));
+        vector_t->vector = duckdb_struct_vector_get_child(nested_vector->vector->vector, i);
+        get_data(vector_t, nested_vector->row_index, &data);
+        add_assoc_zval(array, name, &data);
+        duckdb_free(name);
+        efree(vector_t);
+    }
+}
+
 /* toString methods */
 PHP_METHOD(DuckDB_Value_Timestamp, __toString)
 {
@@ -321,6 +489,25 @@ PHP_METHOD(DuckDB_Value_Time, __toString)
     char buffer[16];
     snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d.%06d", time_struct.hour, time_struct.min, time_struct.sec, time_struct.micros);
     RETURN_STRING(buffer);
+}
+
+PHP_METHOD(DuckDB_Value_Struct, __toString)
+{
+    zval *object = ZEND_THIS;
+    duckdb_nested_vector_t *nested_vector;
+    zval array;
+    smart_str buf = {0};
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    nested_vector = Z_DUCKDB_NESTED_VECTOR_P(object);
+
+    struct_to_array(nested_vector, nested_vector->row_index, &array);
+    php_json_encode(&buf, &array, 0);
+
+    zval_ptr_dtor(&array);
+    
+    RETURN_STR(smart_str_extract(&buf));
 }
 
 /* PHP functions */
@@ -426,149 +613,6 @@ PHP_METHOD(DuckDB_DataChunk, getVector)
     object_init_ex(return_value, duckdb_vector_class_entry);
     vector_t = Z_DUCKDB_VECTOR_P(return_value);
     vector_t->vector = duckdb_data_chunk_get_vector(data_chunk_t->chunk, index);
-}
-
-static void duckdb_value_to_zval(duckdb_vector_t *vector_t, int rowIndex, zval *data)
-{
-    switch (vector_t->type)
-    {
-    case DUCKDB_TYPE_BOOLEAN:
-        ZVAL_BOOL(data, ((bool *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_VARCHAR:
-        uint32_t len = ((duckdb_string_t *)vector_t->data)[rowIndex].value.inlined.length;
-
-        if (len > 12)
-        {
-            ZVAL_STRINGL(data, ((duckdb_string_t *)vector_t->data)[rowIndex].value.pointer.ptr, len);
-        }
-        else
-        {
-            ZVAL_STRINGL(data, ((duckdb_string_t *)vector_t->data)[rowIndex].value.inlined.inlined, len);
-        }
-        break;
-    case DUCKDB_TYPE_TINYINT:
-        ZVAL_LONG(data, ((int8_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_SMALLINT:
-        ZVAL_LONG(data, ((int16_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_INTEGER:
-        ZVAL_LONG(data, ((int32_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_BIGINT:
-        ZVAL_LONG(data, ((int64_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_UTINYINT:
-        ZVAL_LONG(data, ((uint8_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_USMALLINT:
-        ZVAL_LONG(data, ((uint16_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_UINTEGER:
-        ZVAL_LONG(data, ((uint32_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_UBIGINT:
-        ZVAL_LONG(data, ((uint64_t *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_FLOAT:
-        ZVAL_DOUBLE(data, ((float *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_DOUBLE:
-        ZVAL_DOUBLE(data, ((double *)vector_t->data)[rowIndex]);
-        break;
-    case DUCKDB_TYPE_TIMESTAMP:
-    {
-        object_init_ex(data, duckdb_timestamp_class_entry);
-        duckdb_timestamp_t *timestamp_t = Z_DUCKDB_TIMESTAMP_P(data);
-        timestamp_t->timestamp = ((duckdb_timestamp *)vector_t->data)[rowIndex];
-        break;
-    }
-    case DUCKDB_TYPE_DATE:
-    {
-        object_init_ex(data, duckdb_date_class_entry);
-        duckdb_date_t *date_t = Z_DUCKDB_DATE_P(data);
-        date_t->date = ((duckdb_date *)vector_t->data)[rowIndex];
-        break;
-    }
-    case DUCKDB_TYPE_TIME:
-    {
-        object_init_ex(data, duckdb_time_class_entry);
-        duckdb_time_t *time_t = Z_DUCKDB_TIME_P(data);
-        time_t->time = ((duckdb_time *)vector_t->data)[rowIndex];
-        break;
-    }
-    case DUCKDB_TYPE_STRUCT:
-    {
-        object_init_ex(data, duckdb_struct_class_entry);
-        duckdb_nested_vector_t *nested_vector = Z_DUCKDB_NESTED_VECTOR_P(data);
-        nested_vector->vector = vector_t;
-        break;
-    }
-    // Other types just cast to string
-    // TODO: convert types to PHP properly
-    case DUCKDB_TYPE_UUID:
-    {
-        duckdb_hugeint uuid_hugeint = ((duckdb_hugeint *)vector_t->data)[rowIndex];
-        duckdb_uhugeint uuid_uhugeint;
-        uuid_uhugeint.lower = uuid_hugeint.lower;
-
-        if (uuid_hugeint.upper >= 0)
-        {
-            uuid_uhugeint.upper = (uint64_t)(uuid_hugeint.upper) + (uint64_t)(INT64_MAX) + 1;
-        }
-        else
-        {
-            uuid_uhugeint.upper = (uint64_t)(uuid_hugeint.upper + INT64_MAX + 1);
-        }
-
-        duckdb_value value = duckdb_create_uuid(uuid_uhugeint);
-
-        char *string = duckdb_get_varchar(value);
-        ZVAL_STRING(data, string);
-        break;
-    }
-    case DUCKDB_TYPE_INTERVAL:
-    {
-        duckdb_interval value = ((duckdb_interval *)vector_t->data)[rowIndex];
-        duckdb_value value_value = duckdb_create_interval(value);
-
-        char *string = duckdb_get_varchar(value_value);
-        ZVAL_STRING(data, string);
-        break;
-    }
-    default:
-    {
-        ZVAL_NULL(data);
-    }
-    }
-}
-
-static void get_data(duckdb_vector_t *vector_t, zend_long row_index, zval *data)
-{
-    if (vector_t->type == DUCKDB_TYPE_INVALID)
-    {
-        vector_t->logical_type = duckdb_vector_get_column_type(vector_t->vector);
-        vector_t->type = duckdb_get_type_id(vector_t->logical_type);
-    }
-
-    if (vector_t->validity == NULL)
-    {
-        vector_t->validity = duckdb_vector_get_validity(vector_t->vector);
-    }
-
-    if (vector_t->data == NULL)
-    {
-        vector_t->data = duckdb_vector_get_data(vector_t->vector);
-    }
-
-    if (duckdb_validity_row_is_valid(vector_t->validity, row_index))
-    {
-        duckdb_value_to_zval(vector_t, row_index, data);
-        return;
-    }
-
-    ZVAL_NULL(data);
 }
 
 PHP_METHOD(DuckDB_Vector, getData)
@@ -857,27 +901,12 @@ PHP_METHOD(DuckDB_Value_Struct, toArray)
 {
     zval *object = ZEND_THIS;
     duckdb_nested_vector_t *nested_vector;
-    duckdb_vector_t *vector_t;
-    zval data;
-    zend_long index;
 
-    ZEND_PARSE_PARAMETERS_START(1, 1)
-    Z_PARAM_LONG(index)
-    ZEND_PARSE_PARAMETERS_END();
+    ZEND_PARSE_PARAMETERS_NONE();
 
     nested_vector = Z_DUCKDB_NESTED_VECTOR_P(object);
-    array_init(return_value);
-    uint64_t child_size = duckdb_struct_type_child_count(nested_vector->vector->logical_type);
 
-    for (uint64_t i = 0; i < child_size; i++)
-    {
-        char *name = duckdb_struct_type_child_name(nested_vector->vector->logical_type, i);
-        vector_t = ecalloc(1, sizeof(duckdb_vector_t));
-        vector_t->vector = duckdb_struct_vector_get_child(nested_vector->vector->vector, i);
-        get_data(vector_t, index, &data);
-        add_assoc_zval(return_value, name, &data);
-        efree(vector_t);
-    }
+    struct_to_array(nested_vector, nested_vector->row_index, return_value);
     return;
 }
 
