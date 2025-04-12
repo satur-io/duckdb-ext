@@ -482,7 +482,16 @@ static void duckdb_value_to_zval(duckdb_vector_t *vector_t, int rowIndex, zval *
         ZVAL_BOOL(data, ((bool *)vector_t->data)[rowIndex]);
         break;
     case DUCKDB_TYPE_VARCHAR:
-        ZVAL_STRING(data, ((duckdb_string_t *)vector_t->data)[rowIndex].value.inlined.inlined);
+        uint32_t len = ((duckdb_string_t *)vector_t->data)[rowIndex].value.inlined.length;
+
+        if (len > 12)
+        {
+            ZVAL_STRINGL(data, ((duckdb_string_t *)vector_t->data)[rowIndex].value.pointer.ptr, len);
+        }
+        else
+        {
+            ZVAL_STRINGL(data, ((duckdb_string_t *)vector_t->data)[rowIndex].value.inlined.inlined, len);
+        }
         break;
     case DUCKDB_TYPE_TINYINT:
         ZVAL_LONG(data, ((int8_t *)vector_t->data)[rowIndex]);
