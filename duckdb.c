@@ -32,6 +32,7 @@ static zend_object_handlers vector_object_handlers;
 static zend_object_handlers timestamp_object_handlers;
 static zend_object_handlers date_object_handlers;
 static zend_object_handlers time_object_handlers;
+static zend_object_handlers struct_object_handlers;
 
 static zend_class_entry *duckdb_class_entry = NULL;
 static zend_class_entry *duckdb_database_class_entry = NULL;
@@ -42,6 +43,7 @@ static zend_class_entry *duckdb_vector_class_entry = NULL;
 static zend_class_entry *duckdb_timestamp_class_entry = NULL;
 static zend_class_entry *duckdb_date_class_entry = NULL;
 static zend_class_entry *duckdb_time_class_entry = NULL;
+static zend_class_entry *duckdb_struct_class_entry = NULL;
 
 static zend_class_entry *duckdb_exception_class_entry = NULL;
 
@@ -89,6 +91,12 @@ typedef struct duckdb_vector_t
     uint64_t *validity;
     zend_object std;
 } duckdb_vector_t;
+
+typedef struct duckdb_nested_vector_t
+{
+    duckdb_vector_t *vector;
+    zend_object std;
+} duckdb_nested_vector_t;
 
 typedef struct duckdb_timestamp_t
 {
@@ -155,6 +163,12 @@ static inline duckdb_time_t *duckdb_time_t_from_obj(zend_object *obj)
 }
 #define Z_DUCKDB_TIME_P(zv) duckdb_time_t_from_obj(Z_OBJ_P(zv))
 
+static inline duckdb_nested_vector_t *duckdb_nested_vector_t_from_obj(zend_object *obj)
+{
+    return (duckdb_nested_vector_t *)((char *)(obj)-XtOffsetOf(duckdb_nested_vector_t, std));
+}
+#define Z_DUCKDB_NESTED_VECTOR_P(zv) duckdb_nested_vector_t_from_obj(Z_OBJ_P(zv))
+
 /* Free object functions */
 static void duckdb_free_obj(zend_object *obj)
 {
@@ -214,6 +228,12 @@ static void duckdb_vector_free_obj(zend_object *obj)
     zend_object_std_dtor(&vector->std);
 }
 
+static void duckdb_nested_vector_free_obj(zend_object *obj)
+{
+    duckdb_nested_vector_t *vector = duckdb_nested_vector_t_from_obj(obj);
+    zend_object_std_dtor(&vector->std);
+}
+
 static void duckdb_timestamp_free_obj(zend_object *obj)
 {
     duckdb_timestamp_t *timestamp = duckdb_timestamp_t_from_obj(obj);
@@ -266,6 +286,16 @@ static zend_object *duckdb_data_chunk_new(zend_class_entry *ce)
 static zend_object *duckdb_vector_new(zend_class_entry *ce)
 {
     duckdb_vector_t *vector = zend_object_alloc(sizeof(duckdb_vector_t), ce);
+
+    zend_object_std_init(&vector->std, ce);
+    object_properties_init(&vector->std, ce);
+
+    return &vector->std;
+}
+
+static zend_object *duckdb_nested_vector_new(zend_class_entry *ce)
+{
+    duckdb_nested_vector_t *vector = zend_object_alloc(sizeof(duckdb_nested_vector_t), ce);
 
     zend_object_std_init(&vector->std, ce);
     object_properties_init(&vector->std, ce);
@@ -590,6 +620,13 @@ static void duckdb_value_to_zval(duckdb_vector_t *vector_t, int rowIndex, zval *
         time_t->time = ((duckdb_time *)vector_t->data)[rowIndex];
         break;
     }
+    case DUCKDB_TYPE_STRUCT:
+    {
+        object_init_ex(data, duckdb_struct_class_entry);
+        duckdb_nested_vector_t *nested_vector = Z_DUCKDB_NESTED_VECTOR_P(data);
+        nested_vector->vector = vector_t;
+        break;
+    }
     // Other types just cast to string
     // TODO: convert types to PHP properly
     case DUCKDB_TYPE_UUID:
@@ -888,6 +925,76 @@ PHP_METHOD(DuckDB_Value_Time, getTotalMicroseconds)
     RETURN_LONG((&time_t->time)->micros);
 }
 
+PHP_METHOD(DuckDB_Value_Struct, childCount)
+{
+    zval *object = ZEND_THIS;
+    duckdb_nested_vector_t *nested_vector;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    nested_vector = Z_DUCKDB_NESTED_VECTOR_P(object);
+
+    RETURN_LONG(duckdb_struct_type_child_count(nested_vector->vector->logical_type));
+}
+
+PHP_METHOD(DuckDB_Value_Struct, childName)
+{
+    zval *object = ZEND_THIS;
+    duckdb_nested_vector_t *nested_vector;
+    zend_long index;
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+    Z_PARAM_LONG(index)
+    ZEND_PARSE_PARAMETERS_END();
+
+    nested_vector = Z_DUCKDB_NESTED_VECTOR_P(object);
+
+    RETURN_STRING(duckdb_struct_type_child_name(nested_vector->vector->logical_type, index));
+}
+
+PHP_METHOD(DuckDB_Value_Struct, getChild)
+{
+    zval *object = ZEND_THIS;
+    duckdb_nested_vector_t *nested_vector;
+    duckdb_vector_t *vector_t;
+    zend_long index;
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+    Z_PARAM_LONG(index)
+    ZEND_PARSE_PARAMETERS_END();
+
+    nested_vector = Z_DUCKDB_NESTED_VECTOR_P(object);
+
+    object_init_ex(return_value, duckdb_vector_class_entry);
+    vector_t = Z_DUCKDB_VECTOR_P(return_value);
+
+    vector_t->vector = duckdb_struct_vector_get_child(nested_vector->vector->vector, index);
+}
+
+PHP_METHOD(DuckDB_Value_Struct, toArray)
+{
+    zval *object = ZEND_THIS;
+    duckdb_nested_vector_t *nested_vector;
+    zval data;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    nested_vector = Z_DUCKDB_NESTED_VECTOR_P(object);
+    array_init(return_value);
+    uint64_t child_size = duckdb_struct_type_child_count(nested_vector->vector->logical_type);
+
+    for (uint64_t i = 0; i < child_size; i++)
+    {
+        object_init_ex(&data, duckdb_vector_class_entry);
+        duckdb_vector_t *vector_t = Z_DUCKDB_VECTOR_P(&data);
+
+        char *name = duckdb_struct_type_child_name(nested_vector->vector->logical_type, i);
+        vector_t->vector = duckdb_struct_vector_get_child(nested_vector->vector->vector, i);
+        add_assoc_zval(return_value, name, &data);
+    }
+    return;
+}
+
 PHP_RINIT_FUNCTION(duckdb)
 {
 #if defined(ZTS) && defined(COMPILE_DL_DUCKDB)
@@ -908,6 +1015,7 @@ PHP_MINIT_FUNCTION(duckdb)
     memcpy(&timestamp_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
     memcpy(&date_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
     memcpy(&time_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
+    memcpy(&struct_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
 
     duckdb_class_entry = register_class_DuckDB_DuckDB();
     duckdb_class_entry->create_object = duckdb_new;
@@ -952,6 +1060,12 @@ PHP_MINIT_FUNCTION(duckdb)
     duckdb_time_class_entry->default_object_handlers = &time_object_handlers;
     time_object_handlers.free_obj = duckdb_time_free_obj;
     time_object_handlers.offset = XtOffsetOf(duckdb_time_t, std);
+
+    duckdb_struct_class_entry = register_class_DuckDB_Value_Struct();
+    duckdb_struct_class_entry->create_object = duckdb_nested_vector_new;
+    duckdb_struct_class_entry->default_object_handlers = &struct_object_handlers;
+    struct_object_handlers.free_obj = duckdb_nested_vector_free_obj;
+    struct_object_handlers.offset = XtOffsetOf(duckdb_nested_vector_t, std);
 
     return SUCCESS;
 }

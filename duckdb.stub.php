@@ -83,9 +83,14 @@ namespace DuckDB\Value {
         public function getMinutes(): int {}
         public function getSeconds(): int {}
         public function getMicroseconds(): int {}
-
-
         public function __toString(): string {}
+    }
+
+    class Struct {
+        public function childCount(): int {}
+        public function childName(int $index): string {}
+        public function getChild(int $index): \DuckDB\Vector {}
+        public function toArray(): array {}
     }
 }
 
