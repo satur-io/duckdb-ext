@@ -76,7 +76,13 @@ namespace DuckDB\Value {
 
     /** @not-serializable */
     class Time {
-        public function getMicros(): int {}
+        public function getTotalMicroseconds(): int {}
+        public function getHour(): int {}
+        public function getMinutes(): int {}
+        public function getSeconds(): int {}
+        public function getMicroseconds(): int {}
+
+
         public function __toString(): string {}
     }
 }

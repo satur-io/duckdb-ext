@@ -107,6 +107,8 @@ typedef struct duckdb_date_t
 typedef struct duckdb_time_t
 {
     duckdb_time time;
+    duckdb_time_struct time_struct;
+    bool time_struct_initialised;
     zend_object std;
 } duckdb_time_t;
 
@@ -776,7 +778,73 @@ PHP_METHOD(DuckDB_Value_Date, getDays)
     RETURN_LONG((&date_t->date)->days);
 }
 
-PHP_METHOD(DuckDB_Value_Time, getMicros)
+static duckdb_time_struct get_time_struct_from_time(duckdb_time_t *time)
+{
+    if (time->time_struct_initialised != true)
+    {
+        time->time_struct = duckdb_from_time(time->time);
+        time->time_struct_initialised = true;
+    }
+    return time->time_struct;
+}
+
+PHP_METHOD(DuckDB_Value_Time, getHour)
+{
+    zval *object = ZEND_THIS;
+    duckdb_time_t *time_t;
+    duckdb_time_struct time_struct;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    time_t = Z_DUCKDB_TIME_P(object);
+
+    time_struct = get_time_struct_from_time(time_t);
+    RETURN_LONG(time_struct.hour);
+}
+
+PHP_METHOD(DuckDB_Value_Time, getMinutes)
+{
+    zval *object = ZEND_THIS;
+    duckdb_time_t *time_t;
+    duckdb_time_struct time_struct;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    time_t = Z_DUCKDB_TIME_P(object);
+
+    time_struct = get_time_struct_from_time(time_t);
+    RETURN_LONG(time_struct.min);
+}
+
+PHP_METHOD(DuckDB_Value_Time, getSeconds)
+{
+    zval *object = ZEND_THIS;
+    duckdb_time_t *time_t;
+    duckdb_time_struct time_struct;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    time_t = Z_DUCKDB_TIME_P(object);
+
+    time_struct = get_time_struct_from_time(time_t);
+    RETURN_LONG(time_struct.sec);
+}
+
+PHP_METHOD(DuckDB_Value_Time, getMicroseconds)
+{
+    zval *object = ZEND_THIS;
+    duckdb_time_t *time_t;
+    duckdb_time_struct time_struct;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    time_t = Z_DUCKDB_TIME_P(object);
+
+    time_struct = get_time_struct_from_time(time_t);
+    RETURN_LONG(time_struct.micros);
+}
+
+PHP_METHOD(DuckDB_Value_Time, getTotalMicroseconds)
 {
     zval *object = ZEND_THIS;
     duckdb_time_t *time_t;

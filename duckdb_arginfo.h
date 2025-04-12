@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: eb64ef4ce8afad3db9f3eabe3c527640e7fc2af6 */
+ * Stub hash: 5a0c1d93f5ab5aeb2d28cbd2e1d42183976ae998 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_duckdb_info, 0, 0, IS_VOID, 0)
 ZEND_END_ARG_INFO()
@@ -45,7 +45,15 @@ ZEND_END_ARG_INFO()
 
 #define arginfo_class_DuckDB_Value_Date___toString arginfo_class_DuckDB_Value_Timestamp___toString
 
-#define arginfo_class_DuckDB_Value_Time_getMicros arginfo_class_DuckDB_Result_columnCount
+#define arginfo_class_DuckDB_Value_Time_getTotalMicroseconds arginfo_class_DuckDB_Result_columnCount
+
+#define arginfo_class_DuckDB_Value_Time_getHour arginfo_class_DuckDB_Result_columnCount
+
+#define arginfo_class_DuckDB_Value_Time_getMinutes arginfo_class_DuckDB_Result_columnCount
+
+#define arginfo_class_DuckDB_Value_Time_getSeconds arginfo_class_DuckDB_Result_columnCount
+
+#define arginfo_class_DuckDB_Value_Time_getMicroseconds arginfo_class_DuckDB_Result_columnCount
 
 #define arginfo_class_DuckDB_Value_Time___toString arginfo_class_DuckDB_Value_Timestamp___toString
 
@@ -65,7 +73,11 @@ ZEND_METHOD(DuckDB_Value_Date, getMonth);
 ZEND_METHOD(DuckDB_Value_Date, getDay);
 ZEND_METHOD(DuckDB_Value_Date, getDays);
 ZEND_METHOD(DuckDB_Value_Date, __toString);
-ZEND_METHOD(DuckDB_Value_Time, getMicros);
+ZEND_METHOD(DuckDB_Value_Time, getTotalMicroseconds);
+ZEND_METHOD(DuckDB_Value_Time, getHour);
+ZEND_METHOD(DuckDB_Value_Time, getMinutes);
+ZEND_METHOD(DuckDB_Value_Time, getSeconds);
+ZEND_METHOD(DuckDB_Value_Time, getMicroseconds);
 ZEND_METHOD(DuckDB_Value_Time, __toString);
 
 static const zend_function_entry ext_functions[] = {
@@ -113,7 +125,11 @@ static const zend_function_entry class_DuckDB_Value_Date_methods[] = {
 };
 
 static const zend_function_entry class_DuckDB_Value_Time_methods[] = {
-	ZEND_ME(DuckDB_Value_Time, getMicros, arginfo_class_DuckDB_Value_Time_getMicros, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Time, getTotalMicroseconds, arginfo_class_DuckDB_Value_Time_getTotalMicroseconds, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Time, getHour, arginfo_class_DuckDB_Value_Time_getHour, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Time, getMinutes, arginfo_class_DuckDB_Value_Time_getMinutes, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Time, getSeconds, arginfo_class_DuckDB_Value_Time_getSeconds, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Time, getMicroseconds, arginfo_class_DuckDB_Value_Time_getMicroseconds, ZEND_ACC_PUBLIC)
 	ZEND_ME(DuckDB_Value_Time, __toString, arginfo_class_DuckDB_Value_Time___toString, ZEND_ACC_PUBLIC)
 	ZEND_FE_END
 };
