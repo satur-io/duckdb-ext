@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: d41309d43c280a78533d80691c4ff0d0b71d4e61 */
+ * Stub hash: eb64ef4ce8afad3db9f3eabe3c527640e7fc2af6 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_duckdb_info, 0, 0, IS_VOID, 0)
 ZEND_END_ARG_INFO()
@@ -45,6 +45,10 @@ ZEND_END_ARG_INFO()
 
 #define arginfo_class_DuckDB_Value_Date___toString arginfo_class_DuckDB_Value_Timestamp___toString
 
+#define arginfo_class_DuckDB_Value_Time_getMicros arginfo_class_DuckDB_Result_columnCount
+
+#define arginfo_class_DuckDB_Value_Time___toString arginfo_class_DuckDB_Value_Timestamp___toString
+
 ZEND_FUNCTION(duckdb_info);
 ZEND_METHOD(DuckDB_DuckDB, __construct);
 ZEND_METHOD(DuckDB_DuckDB, query);
@@ -61,6 +65,8 @@ ZEND_METHOD(DuckDB_Value_Date, getMonth);
 ZEND_METHOD(DuckDB_Value_Date, getDay);
 ZEND_METHOD(DuckDB_Value_Date, getDays);
 ZEND_METHOD(DuckDB_Value_Date, __toString);
+ZEND_METHOD(DuckDB_Value_Time, getMicros);
+ZEND_METHOD(DuckDB_Value_Time, __toString);
 
 static const zend_function_entry ext_functions[] = {
 	ZEND_FE(duckdb_info, arginfo_duckdb_info)
@@ -103,6 +109,12 @@ static const zend_function_entry class_DuckDB_Value_Date_methods[] = {
 	ZEND_ME(DuckDB_Value_Date, getDay, arginfo_class_DuckDB_Value_Date_getDay, ZEND_ACC_PUBLIC)
 	ZEND_ME(DuckDB_Value_Date, getDays, arginfo_class_DuckDB_Value_Date_getDays, ZEND_ACC_PUBLIC)
 	ZEND_ME(DuckDB_Value_Date, __toString, arginfo_class_DuckDB_Value_Date___toString, ZEND_ACC_PUBLIC)
+	ZEND_FE_END
+};
+
+static const zend_function_entry class_DuckDB_Value_Time_methods[] = {
+	ZEND_ME(DuckDB_Value_Time, getMicros, arginfo_class_DuckDB_Value_Time_getMicros, ZEND_ACC_PUBLIC)
+	ZEND_ME(DuckDB_Value_Time, __toString, arginfo_class_DuckDB_Value_Time___toString, ZEND_ACC_PUBLIC)
 	ZEND_FE_END
 };
 
@@ -181,7 +193,7 @@ static zend_class_entry *register_class_DuckDB_Value_Date(void)
 	zend_class_entry ce, *class_entry;
 
 	INIT_NS_CLASS_ENTRY(ce, "DuckDB\\Value", "Date", class_DuckDB_Value_Date_methods);
-	class_entry = zend_register_internal_class_with_flags(&ce, NULL, 0);
+	class_entry = zend_register_internal_class_with_flags(&ce, NULL, ZEND_ACC_NOT_SERIALIZABLE);
 
 	return class_entry;
 }
@@ -190,8 +202,8 @@ static zend_class_entry *register_class_DuckDB_Value_Time(void)
 {
 	zend_class_entry ce, *class_entry;
 
-	INIT_NS_CLASS_ENTRY(ce, "DuckDB\\Value", "Time", NULL);
-	class_entry = zend_register_internal_class_with_flags(&ce, NULL, 0);
+	INIT_NS_CLASS_ENTRY(ce, "DuckDB\\Value", "Time", class_DuckDB_Value_Time_methods);
+	class_entry = zend_register_internal_class_with_flags(&ce, NULL, ZEND_ACC_NOT_SERIALIZABLE);
 
 	return class_entry;
 }

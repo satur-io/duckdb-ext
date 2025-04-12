@@ -64,6 +64,7 @@ namespace DuckDB\Value {
         public function __toString(): string {}
     }
 
+    /** @not-serializable */
     class Date {
         public function infinity(): int {}
         public function getYear(): int {}
@@ -73,7 +74,10 @@ namespace DuckDB\Value {
         public function __toString(): string {}
     }
 
+    /** @not-serializable */
     class Time {
+        public function getMicros(): int {}
+        public function __toString(): string {}
     }
 }
 

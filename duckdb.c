@@ -31,6 +31,7 @@ static zend_object_handlers data_chunk_object_handlers;
 static zend_object_handlers vector_object_handlers;
 static zend_object_handlers timestamp_object_handlers;
 static zend_object_handlers date_object_handlers;
+static zend_object_handlers time_object_handlers;
 
 static zend_class_entry *duckdb_class_entry = NULL;
 static zend_class_entry *duckdb_database_class_entry = NULL;
@@ -40,6 +41,7 @@ static zend_class_entry *duckdb_data_chunk_class_entry = NULL;
 static zend_class_entry *duckdb_vector_class_entry = NULL;
 static zend_class_entry *duckdb_timestamp_class_entry = NULL;
 static zend_class_entry *duckdb_date_class_entry = NULL;
+static zend_class_entry *duckdb_time_class_entry = NULL;
 
 static zend_class_entry *duckdb_exception_class_entry = NULL;
 
@@ -102,6 +104,12 @@ typedef struct duckdb_date_t
     zend_object std;
 } duckdb_date_t;
 
+typedef struct duckdb_time_t
+{
+    duckdb_time time;
+    zend_object std;
+} duckdb_time_t;
+
 /* Type transformers */
 static inline duckdb_t *duckdb_t_from_obj(zend_object *obj)
 {
@@ -138,6 +146,12 @@ static inline duckdb_date_t *duckdb_date_t_from_obj(zend_object *obj)
     return (duckdb_date_t *)((char *)(obj)-XtOffsetOf(duckdb_date_t, std));
 }
 #define Z_DUCKDB_DATE_P(zv) duckdb_date_t_from_obj(Z_OBJ_P(zv))
+
+static inline duckdb_time_t *duckdb_time_t_from_obj(zend_object *obj)
+{
+    return (duckdb_time_t *)((char *)(obj)-XtOffsetOf(duckdb_time_t, std));
+}
+#define Z_DUCKDB_TIME_P(zv) duckdb_time_t_from_obj(Z_OBJ_P(zv))
 
 /* Free object functions */
 static void duckdb_free_obj(zend_object *obj)
@@ -208,8 +222,13 @@ static void duckdb_timestamp_free_obj(zend_object *obj)
 static void duckdb_date_free_obj(zend_object *obj)
 {
     duckdb_date_t *date = duckdb_date_t_from_obj(obj);
-
     zend_object_std_dtor(&date->std);
+}
+
+static void duckdb_time_free_obj(zend_object *obj)
+{
+    duckdb_time_t *time_t = duckdb_time_t_from_obj(obj);
+    zend_object_std_dtor(&time_t->std);
 }
 
 /* Create object functions */
@@ -270,6 +289,16 @@ static zend_object *duckdb_date_new(zend_class_entry *ce)
     object_properties_init(&date->std, ce);
 
     return &date->std;
+}
+
+static zend_object *duckdb_time_new(zend_class_entry *ce)
+{
+    duckdb_time_t *time = zend_object_alloc(sizeof(duckdb_time_t), ce);
+
+    zend_object_std_init(&time->std, ce);
+    object_properties_init(&time->std, ce);
+
+    return &time->std;
 }
 
 /* Constructors */
@@ -367,6 +396,21 @@ PHP_METHOD(DuckDB_Value_Date, __toString)
 
     date_t = Z_DUCKDB_DATE_P(object);
     RETURN_STRING(duckdb_get_varchar(duckdb_create_date(date_t->date)));
+}
+
+PHP_METHOD(DuckDB_Value_Time, __toString)
+{
+    zval *object = ZEND_THIS;
+    duckdb_time_t *time_t;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    time_t = Z_DUCKDB_TIME_P(object);
+
+    duckdb_time_struct time_struct = duckdb_from_time(time_t->time);
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d.%06d", time_struct.hour, time_struct.min, time_struct.sec, time_struct.micros);
+    RETURN_STRING(buffer);
 }
 
 /* PHP functions */
@@ -535,6 +579,13 @@ static void duckdb_value_to_zval(duckdb_vector_t *vector_t, int rowIndex, zval *
         object_init_ex(data, duckdb_date_class_entry);
         duckdb_date_t *date_t = Z_DUCKDB_DATE_P(data);
         date_t->date = ((duckdb_date *)vector_t->data)[rowIndex];
+        break;
+    }
+    case DUCKDB_TYPE_TIME:
+    {
+        object_init_ex(data, duckdb_time_class_entry);
+        duckdb_time_t *time_t = Z_DUCKDB_TIME_P(data);
+        time_t->time = ((duckdb_time *)vector_t->data)[rowIndex];
         break;
     }
     // Other types just cast to string
@@ -725,6 +776,18 @@ PHP_METHOD(DuckDB_Value_Date, getDays)
     RETURN_LONG((&date_t->date)->days);
 }
 
+PHP_METHOD(DuckDB_Value_Time, getMicros)
+{
+    zval *object = ZEND_THIS;
+    duckdb_time_t *time_t;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    time_t = Z_DUCKDB_TIME_P(object);
+
+    RETURN_LONG((&time_t->time)->micros);
+}
+
 PHP_RINIT_FUNCTION(duckdb)
 {
 #if defined(ZTS) && defined(COMPILE_DL_DUCKDB)
@@ -744,6 +807,7 @@ PHP_MINIT_FUNCTION(duckdb)
     memcpy(&vector_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
     memcpy(&timestamp_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
     memcpy(&date_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
+    memcpy(&time_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
 
     duckdb_class_entry = register_class_DuckDB_DuckDB();
     duckdb_class_entry->create_object = duckdb_new;
@@ -782,6 +846,12 @@ PHP_MINIT_FUNCTION(duckdb)
     duckdb_date_class_entry->default_object_handlers = &date_object_handlers;
     date_object_handlers.free_obj = duckdb_date_free_obj;
     date_object_handlers.offset = XtOffsetOf(duckdb_date_t, std);
+
+    duckdb_time_class_entry = register_class_DuckDB_Value_Time();
+    duckdb_time_class_entry->create_object = duckdb_time_new;
+    duckdb_time_class_entry->default_object_handlers = &time_object_handlers;
+    time_object_handlers.free_obj = duckdb_time_free_obj;
+    time_object_handlers.offset = XtOffsetOf(duckdb_time_t, std);
 
     return SUCCESS;
 }
