@@ -33,9 +33,20 @@ while ($dataChunk = $result->fetchChunk()) {
         }
     }
 }
+
+$result = $duckDB->query("SELECT * FROM repeat('quack', 1000000);");
+
+$rows = 0;
+while ($dataChunk = $result->fetchChunk()) {
+    $rows += $dataChunk->getSize();
+}
+
+printf("%s rows", $rows)
+
 ?>
 --EXPECT--
 string(5) "quack"
 string(5) "quick"
 string(5) "queck"
 string(5) "quock"
+1000000 rows
