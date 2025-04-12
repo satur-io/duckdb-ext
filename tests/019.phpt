@@ -24,8 +24,6 @@ while ($dataChunk = $result->fetchChunk()) {
                 $nested_vector = $data->getChild($i);
                 printf("Value %s: %s\n", $i, $nested_vector->getData($r));
             }
-
-            var_dump($data->toArray());
         }
     }
 }
@@ -42,9 +40,9 @@ while ($dataChunk = $result->fetchChunk()) {
             $childs = $data->childCount();
             printf("Childs: %s\n", $childs);
 
-            $dataArray = $data->toArray();
+            $dataArray = $data->toArray($r);
             foreach ($dataArray as $key => $value) {
-                printf("Row %s, for the key %s, value %s\n", $r, $key, $value->getData($r));
+                printf("Row %s, for the key %s, value %s\n", $r, $key, $value);
             }
         }
     }
@@ -61,20 +59,6 @@ Name 2: huh
 Value 2: 
 Name 3: no
 Value 3: heron
-array(4) {
-  ["yes"]=>
-  object(DuckDB\Vector)#6 (0) {
-  }
-  ["maybe"]=>
-  object(DuckDB\Vector)#8 (0) {
-  }
-  ["huh"]=>
-  object(DuckDB\Vector)#9 (0) {
-  }
-  ["no"]=>
-  object(DuckDB\Vector)#10 (0) {
-  }
-}
 Childs: 2
 Row 0, for the key yes, value duck
 Row 0, for the key maybe, value goose
