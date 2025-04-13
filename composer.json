@@ -1,0 +1,13 @@
+{
+    "name": "saturio/duckdb-ext",
+    "description": "PHP extension for DuckDB",
+    "type": "php-ext",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Daniel Hernández-Marín",
+            "email": "dani@satur.io"
+        }
+    ],
+    "require": {}
+}
