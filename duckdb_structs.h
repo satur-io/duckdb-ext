@@ -22,6 +22,12 @@ typedef struct duckdb_connection_t
     zend_object std;
 } duckdb_connection_t;
 
+typedef struct duckdb_prepared_statement_t
+{
+    duckdb_prepared_statement *stmt;
+    zend_object std;
+} duckdb_prepared_statement_t;
+
 typedef struct duckdb_result_t
 {
     bool initialised;
@@ -82,6 +88,12 @@ static inline duckdb_t *duckdb_t_from_obj(zend_object *obj)
     return (duckdb_t *)((char *)(obj)-XtOffsetOf(duckdb_t, std));
 }
 #define Z_DUCKDB_P(zv) duckdb_t_from_obj(Z_OBJ_P(zv))
+
+static inline duckdb_prepared_statement_t *prepared_statement_t_from_obj(zend_object *obj)
+{
+    return (duckdb_prepared_statement_t *)((char *)(obj)-XtOffsetOf(duckdb_prepared_statement_t, std));
+}
+#define Z_PREPARED_STATEMENT_P(zv) prepared_statement_t_from_obj(Z_OBJ_P(zv))
 
 static inline duckdb_result_t *duckdb_result_t_from_obj(zend_object *obj)
 {

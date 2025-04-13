@@ -9,7 +9,8 @@ namespace DuckDB {
     class DuckDB {
         public function __construct(?string $path = null) {}
 
-        public function query(string $query): Result {}
+        public function query(string $query): Result|bool {}
+        public function prepare(string $query): PreparedStatement {}
     }
 
     /** @not-serializable */
@@ -27,6 +28,13 @@ namespace DuckDB {
     /** @not-serializable */
     class Vector {
         public function getData(int $rowIndex): mixed {}
+    }
+
+    /** @not-serializable */
+    class PreparedStatement {
+        // Only string allowed for now. TODO: add other types
+        public function bindParam(int $index, string $param): bool {}
+        public function execute(): Result {}
     }
 
     /**

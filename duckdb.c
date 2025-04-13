@@ -29,6 +29,7 @@
 static zend_object_handlers duckdb_object_handlers;
 static zend_object_handlers database_object_handlers;
 static zend_object_handlers connection_object_handlers;
+static zend_object_handlers prepared_statement_object_handlers;
 static zend_object_handlers result_object_handlers;
 static zend_object_handlers data_chunk_object_handlers;
 static zend_object_handlers vector_object_handlers;
@@ -40,6 +41,7 @@ static zend_object_handlers struct_object_handlers;
 static zend_class_entry *duckdb_class_entry = NULL;
 static zend_class_entry *duckdb_database_class_entry = NULL;
 static zend_class_entry *duckdb_connection_class_entry = NULL;
+static zend_class_entry *duckdb_prepared_statement_class_entry = NULL;
 static zend_class_entry *duckdb_result_class_entry = NULL;
 static zend_class_entry *duckdb_data_chunk_class_entry = NULL;
 static zend_class_entry *duckdb_vector_class_entry = NULL;
@@ -68,6 +70,19 @@ static void duckdb_free_obj(zend_object *obj)
     efree(duckdb->connection);
     efree(duckdb->database);
     zend_object_std_dtor(&duckdb->std);
+}
+
+static void prepared_statement_free_obj(zend_object *obj)
+{
+    duckdb_prepared_statement_t *prepared_statement = prepared_statement_t_from_obj(obj);
+
+    if (prepared_statement->stmt != NULL)
+    {
+        duckdb_destroy_prepare(prepared_statement->stmt);
+    }
+
+    efree(prepared_statement->stmt);
+    zend_object_std_dtor(&prepared_statement->std);
 }
 
 static void duckdb_result_free_obj(zend_object *obj)
@@ -141,6 +156,15 @@ static zend_object *duckdb_new(zend_class_entry *ce)
     zend_object_std_init(&duckdb->std, ce);
     object_properties_init(&duckdb->std, ce);
     return &duckdb->std;
+}
+
+static zend_object *prepared_statement_new(zend_class_entry *ce)
+{
+    duckdb_prepared_statement_t *prepared_statement = zend_object_alloc(sizeof(duckdb_prepared_statement_t), ce);
+
+    zend_object_std_init(&prepared_statement->std, ce);
+    object_properties_init(&prepared_statement->std, ce);
+    return &prepared_statement->std;
 }
 
 static zend_object *duckdb_result_new(zend_class_entry *ce)
@@ -554,6 +578,65 @@ PHP_METHOD(DuckDB_DuckDB, query)
     result_t->initialised = true;
 }
 
+PHP_METHOD(DuckDB_DuckDB, prepare)
+{
+    zval *object = ZEND_THIS;
+    duckdb_t *duckdb_t;
+    duckdb_prepared_statement_t *prepared_statement_t;
+    char *query = NULL;
+    size_t query_len = 0;
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+    Z_PARAM_STRING(query, query_len)
+    ZEND_PARSE_PARAMETERS_END();
+
+    duckdb_t = Z_DUCKDB_P(object);
+
+    object_init_ex(return_value, duckdb_prepared_statement_class_entry);
+    prepared_statement_t = Z_PREPARED_STATEMENT_P(return_value);
+    prepared_statement_t->stmt = emalloc(sizeof(duckdb_prepared_statement));
+
+    if (duckdb_prepare(*duckdb_t->connection, query, prepared_statement_t->stmt) == DuckDBError) {
+        RETURN_THROWS();
+    }
+}
+
+PHP_METHOD(DuckDB_PreparedStatement, bindParam)
+{
+    zval *object = ZEND_THIS;
+    duckdb_prepared_statement_t *prepared_statement_t;
+    zend_long index;
+    char *param = NULL;
+    size_t param_len = 0;
+
+    ZEND_PARSE_PARAMETERS_START(2, 2)
+    Z_PARAM_LONG(index)
+    Z_PARAM_STRING(param, param_len)
+    ZEND_PARSE_PARAMETERS_END();
+
+    prepared_statement_t = Z_PREPARED_STATEMENT_P(object);
+    duckdb_bind_varchar(*prepared_statement_t->stmt, index, param);
+    RETURN_TRUE;
+}
+
+PHP_METHOD(DuckDB_PreparedStatement, execute)
+{
+    zval *object = ZEND_THIS;
+    duckdb_prepared_statement_t *prepared_statement_t;
+    duckdb_result_t *result_t;
+
+    ZEND_PARSE_PARAMETERS_NONE();
+
+    prepared_statement_t = Z_PREPARED_STATEMENT_P(object);
+
+    object_init_ex(return_value, duckdb_result_class_entry);
+    result_t = Z_DUCKDB_RESULT_P(return_value);
+    result_t->result = emalloc(sizeof(duckdb_result));
+
+    duckdb_execute_prepared(*prepared_statement_t->stmt, result_t->result);
+    result_t->initialised = true;
+}
+
 PHP_METHOD(DuckDB_Result, columnCount)
 {
     zval *object = ZEND_THIS;
@@ -924,6 +1007,7 @@ PHP_MINIT_FUNCTION(duckdb)
     duckdb_exception_class_entry = register_class_DuckDB_Exception(zend_ce_exception);
 
     memcpy(&duckdb_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
+    memcpy(&prepared_statement_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
     memcpy(&result_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
     memcpy(&data_chunk_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
     memcpy(&vector_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
@@ -938,6 +1022,12 @@ PHP_MINIT_FUNCTION(duckdb)
     duckdb_object_handlers.offset = XtOffsetOf(duckdb_t, std);
     duckdb_object_handlers.free_obj = duckdb_free_obj;
     duckdb_object_handlers.get_debug_info = duckdb_get_debug_info;
+
+    duckdb_prepared_statement_class_entry = register_class_DuckDB_PreparedStatement();
+    duckdb_prepared_statement_class_entry->create_object = prepared_statement_new;
+    duckdb_prepared_statement_class_entry->default_object_handlers = &prepared_statement_object_handlers;
+    prepared_statement_object_handlers.offset = XtOffsetOf(duckdb_prepared_statement_t, std);
+    prepared_statement_object_handlers.free_obj = prepared_statement_free_obj;
 
     duckdb_result_class_entry = register_class_DuckDB_Result();
     duckdb_result_class_entry->create_object = duckdb_result_new;
